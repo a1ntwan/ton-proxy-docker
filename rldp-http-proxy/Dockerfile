@@ -1,9 +1,8 @@
 FROM ubuntu:20.04 as builder
 
-RUN apt-get update
+RUN apt-get update && apt-get install apt-transport-https -y
 RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get -y install tzdata
-
-RUN apt install -y build-essential cmake clang openssl libssl-dev zlib1g-dev gperf wget git curl libreadline-dev ccache libmicrohttpd-dev pkg-config
+RUN apt install -y build-essential cmake clang openssl libssl-dev zlib1g-dev gperf wget git curl ninja-build libsecp256k1-dev libsodium-dev libreadline-dev ccache libmicrohttpd-dev pkg-config autoconf automake libtool
 
 # build tonlib
 WORKDIR /
@@ -20,16 +19,17 @@ RUN mkdir /ton/build
 WORKDIR /ton/build
 ENV CC clang
 ENV CXX clang++
-RUN cmake -DCMAKE_BUILD_TYPE=Release ..
-RUN cmake --build . -j$(nproc) --target rldp-http-proxy generate-random-id
+RUN cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DPORTABLE=1 -DTON_ARCH= .. && \
+    cmake --build . -j$(nproc) --target rldp-http-proxy generate-random-id
 
 
 FROM ubuntu:20.04
 
-RUN apt-get update
-RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get -y install tzdata
+RUN apt-get update && apt-get install apt-transport-https -y
+RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get -y install tzdata 
 
-RUN apt install -y openssl libssl-dev wget curl libatomic1 zlib1g-dev gperf wget git curl libreadline-dev ccache libmicrohttpd-dev
+RUN apt install -y openssl libssl-dev wget curl libatomic1 zlib1g-dev gperf wget git curl libreadline-dev ccache libmicrohttpd-dev libsecp256k1-dev libsodium-dev && \
+    rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 COPY --from=builder /ton/build/rldp-http-proxy/rldp-http-proxy /app/rldp-http-proxy
